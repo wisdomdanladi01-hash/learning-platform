@@ -1,0 +1,83 @@
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+
+
+class StudentRegistration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    full_name: str = Field(default="", min_length=2, max_length=255)
+    first_name: str | None = Field(default=None, max_length=100)
+    middle_name: str | None = Field(default=None, max_length=100)
+    surname: str | None = Field(default=None, max_length=100)
+    password: str = Field(min_length=12, max_length=256)
+    jamb_registration_number: str | None = Field(default=None, max_length=40)
+    matriculation_number: str | None = Field(default=None, max_length=40)
+    programme_id: int | None = Field(default=None, gt=0)
+    department_id: int | None = Field(default=None, gt=0)
+    admission_session_id: int | None = Field(default=None, gt=0)
+    claimed_level_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="before")
+    @classmethod
+    def compose_full_name(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+
+        first_name = " ".join(str(values.get("first_name") or "").split())
+        middle_name = " ".join(str(values.get("middle_name") or "").split())
+        surname = " ".join(str(values.get("surname") or "").split())
+
+        if first_name or middle_name or surname:
+            if not first_name or not surname:
+                raise ValueError("First name and surname are required.")
+            values["full_name"] = " ".join(
+                name for name in (first_name, middle_name, surname) if name
+            )
+        else:
+            values["full_name"] = " ".join(str(values.get("full_name") or "").split())
+        return values
+
+    @model_validator(mode="after")
+    def require_student_identifier(self) -> "StudentRegistration":
+        if not self.full_name:
+            raise ValueError("First name and surname are required.")
+        self.jamb_registration_number = self._normalize_identifier(
+            self.jamb_registration_number
+        )
+        self.matriculation_number = self._normalize_identifier(self.matriculation_number)
+        if not self.jamb_registration_number and not self.matriculation_number:
+            raise ValueError("Provide a JAMB registration number or matriculation number.")
+        return self
+
+    @staticmethod
+    def _normalize_identifier(value: str | None) -> str | None:
+        normalized = value.strip().upper() if value else None
+        return normalized or None
+
+
+class LoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=256)
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: EmailStr
+    full_name: str
+    is_active: bool
+
+
+class UserProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+    full_name: str = Field(min_length=2, max_length=255)

@@ -1,0 +1,68 @@
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    app_name: str = Field(default="Learning Resource Platform API")
+    app_env: str = Field(default="development", alias="APP_ENV")
+    debug: bool = Field(default=False, alias="DEBUG")
+    api_v1_str: str = Field(default="/api/v1", alias="API_V1_STR")
+    database_url: str = Field(
+        default="postgresql+psycopg://postgres:postgres@localhost:5432/learning_platform_dev",
+        alias="DATABASE_URL",
+    )
+    jwt_secret_key: str = Field(default="", alias="JWT_SECRET_KEY")
+    access_token_expire_minutes: int = Field(default=20, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    verification_document_retention_days: int = Field(
+        default=3, alias="VERIFICATION_DOCUMENT_RETENTION_DAYS"
+    )
+    private_storage_dir: str = Field(default="private_storage", alias="PRIVATE_STORAGE_DIR")
+    verification_document_max_bytes: int = Field(
+        default=10_485_760, alias="VERIFICATION_DOCUMENT_MAX_BYTES"
+    )
+    resource_max_bytes: int = Field(default=52_428_800, gt=0, alias="RESOURCE_MAX_BYTES")
+    paystack_secret_key: str = Field(default="", alias="PAYSTACK_SECRET_KEY")
+    paystack_api_url: str = Field(
+        default="https://api.paystack.co", alias="PAYSTACK_API_URL"
+    )
+    paystack_callback_url: str = Field(
+        default="http://localhost:5173/payment/return",
+        alias="PAYSTACK_CALLBACK_URL",
+    )
+    paystack_timeout_seconds: float = Field(
+        default=10.0, gt=0, alias="PAYSTACK_TIMEOUT_SECONDS"
+    )
+    paystack_live_enabled: bool = Field(default=False, alias="PAYSTACK_LIVE_ENABLED")
+    default_semester_subscription_price_minor: int = Field(
+        default=100_000, gt=0, alias="DEFAULT_SEMESTER_SUBSCRIPTION_PRICE_MINOR"
+    )
+    auth_rate_limit_requests: int = Field(default=10, gt=0, alias="AUTH_RATE_LIMIT_REQUESTS")
+    auth_rate_limit_window_seconds: int = Field(
+        default=60, gt=0, alias="AUTH_RATE_LIMIT_WINDOW_SECONDS"
+    )
+    backend_cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173",
+        alias="BACKEND_CORS_ORIGINS",
+    )
+
+    @property
+    def cors_origins(self) -> list[str]:
+        value = self.backend_cors_origins.strip()
+        if not value:
+            return []
+        if value.startswith("["):
+            import json
+
+            parsed = json.loads(value)
+            return [str(item).strip() for item in parsed if str(item).strip()]
+        return [item.strip() for item in value.split(",") if item.strip()]
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+
+settings = Settings()

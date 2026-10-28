@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --header-h: 64px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-ink-50 text-ink-900 font-sans antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display text-ink-900;
+    letter-spacing: -0.018em;
+  }
+
+  /* Tap targets, no blue flash on mobile */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    @apply bg-teal-200 text-ink-950;
+  }
+
+  /* Better focus ring */
+  :focus-visible {
+    outline: 2px solid theme('colors.teal.500');
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.ink.200') transparent;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-content px-4 sm:px-6 lg:px-8;
+  }
+
+  .prose-doc {
+    @apply text-ink-800 leading-[1.75] text-[1.0625rem];
+  }
+  .prose-doc p { @apply mb-4; }
+  .prose-doc h3 { @apply font-display text-xl text-ink-900 mt-7 mb-2.5; }
+  .prose-doc ul { @apply mb-4 pl-5 space-y-1.5 list-disc marker:text-teal-600; }
+  .prose-doc strong { @apply font-semibold text-ink-900; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
