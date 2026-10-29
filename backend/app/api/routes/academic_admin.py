@@ -23,6 +23,10 @@ from app.models.academic import (
     Semester,
 )
 from app.models.user import User
+from app.models.resource import Resource
+from app.models.identity import VerificationSubmission
+from app.models.commerce import AccessPackage, Payment
+from sqlalchemy import func
 from app.schemas.academic import (
     CourseCreate,
     CourseOfferingImportResponse,
@@ -661,3 +665,78 @@ def admin_import_course_offerings(
         raise HTTPException(status_code=422, detail=f"Invalid CSV: {exc}") from exc
 
     return CourseOfferingImportResponse(**stats)
+
+@router.get("/overview")
+def admin_overview(
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    total_resources = db.scalar(select(func.count(Resource.id))) or 0
+    published_resources = db.scalar(select(func.count(Resource.id)).where(Resource.is_published.is_(True))) or 0
+    total_faculties = db.scalar(select(func.count(Faculty.id))) or 0
+    total_departments = db.scalar(select(func.count(Department.id))) or 0
+    total_programmes = db.scalar(select(func.count(Programme.id))) or 0
+    total_courses = db.scalar(select(func.count(Course.id))) or 0
+    total_offerings = db.scalar(select(func.count(CourseOffering.id))) or 0
+    verified_offerings = db.scalar(
+        select(func.count(CourseOffering.id)).where(CourseOffering.verification_status == "verified")
+    ) or 0
+    unverified_offerings = total_offerings - verified_offerings
+    pending_verifications = db.scalar(
+        select(func.count(VerificationSubmission.id)).where(VerificationSubmission.status == "pending")
+    ) or 0
+    total_packages = db.scalar(select(func.count(AccessPackage.id))) or 0
+    total_payments = db.scalar(select(func.count(Payment.id))) or 0
+    succeeded_payments = db.scalar(
+        select(func.count(Payment.id)).where(Payment.status == "succeeded")
+    ) or 0
+
+    recent_resources = db.scalars(
+        select(Resource).order_by(Resource.created_at.desc(), Resource.id.desc()).limit(5)
+    ).all()
+
+    recent_submissions = db.scalars(
+        select(VerificationSubmission).order_by(VerificationSubmission.created_at.desc(), VerificationSubmission.id.desc()).limit(5)
+    ).all()
+
+    return {
+        "metrics": {
+            "total_resources": total_resources,
+            "published_resources": published_resources,
+            "total_faculties": total_faculties,
+            "total_departments": total_departments,
+            "total_programmes": total_programmes,
+            "total_courses": total_courses,
+            "total_course_offerings": total_offerings,
+            "verified_offerings": verified_offerings,
+            "unverified_offerings": unverified_offerings,
+            "pending_verifications": pending_verifications,
+            "total_packages": total_packages,
+            "total_payments": total_payments,
+            "succeeded_payments": succeeded_payments,
+        },
+        "recent_resources": [
+            {
+                "id": r.id,
+                "title": r.title,
+                "file_name": r.file_name,
+                "mime_type": r.mime_type,
+                "is_published": r.is_published,
+                "access_policy": r.access_policy,
+                "preview_policy": getattr(r, "preview_policy", "none"),
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in recent_resources
+        ],
+        "recent_submissions": [
+            {
+                "id": s.id,
+                "user_id": s.user_id,
+                "status": s.status,
+                "matriculation_number": s.matriculation_number,
+                "jamb_registration_number": s.jamb_registration_number,
+                "created_at": s.created_at.isoformat(),
+            }
+            for s in recent_submissions
+        ],
+    }

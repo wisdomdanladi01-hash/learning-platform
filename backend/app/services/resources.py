@@ -80,6 +80,8 @@ def create_resource(
     resource_type_id: int | None,
     is_published: bool,
     access_policy: AccessPolicy,
+    preview_policy: str = "none",
+    preview_content: str | None = None,
     requires_verification: bool,
     available_from: datetime | None,
     available_until: datetime | None,
@@ -111,6 +113,8 @@ def create_resource(
         created_by_id=admin.id,
         is_published=is_published,
         access_policy=access_policy,
+        preview_policy=preview_policy,
+        preview_content=preview_content,
         requires_verification=requires_verification,
         **values,
     )

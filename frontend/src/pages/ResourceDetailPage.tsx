@@ -3,15 +3,31 @@ import { Link, useParams } from 'react-router-dom';
 import { catalogService } from '@/services/catalog';
 import { useAuth } from '@/auth/AuthContext';
 import { useRecentlyViewed } from '@/hooks/useRecentlyViewed';
-import { downloadResource } from '@/services/api';
+import { downloadResource, API_BASE_URL, ApiError } from '@/services/api';
 import type { CatalogResource } from '@/services/catalog';
+import type { ResourcePreview } from '@/types';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { ProtectedActionDialog } from '@/components/ProtectedActionDialog';
 import { ResourceCard } from '@/components/ResourceCard';
-import { ArrowLeft, Lock, Download, ListChecks, ShieldCheck, FileText, Tag, ChevronRight } from 'lucide-react';
+import {
+  ArrowLeft,
+  Lock,
+  Download,
+  ListChecks,
+  ShieldCheck,
+  FileText,
+  Tag,
+  ChevronRight,
+  Eye,
+  ExternalLink,
+  Copy,
+  Check,
+  FileCode,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { formatRelative } from '@/utils/format';
 
 export function ResourceDetailPage() {
@@ -20,16 +36,21 @@ export function ResourceDetailPage() {
   const recentlyViewed = useRecentlyViewed();
   const [authDialog, setAuthDialog] = useState(false);
   const [resource, setResource] = useState<CatalogResource | null>(null);
+  const [preview, setPreview] = useState<ResourcePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(true);
+  const [previewAuthRequired, setPreviewAuthRequired] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [copiedExcerpt, setCopiedExcerpt] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     let active = true;
     setLoading(true);
-    catalogService.getResource(id)
+    catalogService
+      .getResource(id)
       .then((item) => {
         if (!active) return;
         if (!item) setError('This learning material is unavailable.');
@@ -38,20 +59,62 @@ export function ResourceDetailPage() {
           recentlyViewed.add(item.id);
         }
       })
-      .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'Unable to load this learning material.'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Unable to load this learning material.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setPreviewLoading(true);
+    setPreviewAuthRequired(false);
+
+    catalogService
+      .getResourcePreview(id)
+      .then((data) => {
+        if (!active) return;
+        setPreview(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (err instanceof ApiError && err.status === 401) {
+          setPreviewAuthRequired(true);
+        } else {
+          setPreview(null);
+        }
+      })
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id, profile]);
 
   const [related, setRelated] = useState<CatalogResource[]>([]);
   useEffect(() => {
     if (!resource) return;
     let active = true;
-    catalogService.getRelatedResources(resource.id)
-      .then((items) => { if (active) setRelated(items); })
-      .catch(() => { if (active) setRelated([]); });
-    return () => { active = false; };
+    catalogService
+      .getRelatedResources(resource.id)
+      .then((items) => {
+        if (active) setRelated(items);
+      })
+      .catch(() => {
+        if (active) setRelated([]);
+      });
+    return () => {
+      active = false;
+    };
   }, [resource]);
 
   if (loading) {
@@ -60,9 +123,15 @@ export function ResourceDetailPage() {
   if (!resource || error) {
     return (
       <div className="container-page py-16">
-        <Alert tone="error" title="Learning material unavailable">{error ?? 'This learning material is unavailable.'}</Alert>
+        <Alert tone="error" title="Learning material unavailable">
+          {error ?? 'This learning material is unavailable.'}
+        </Alert>
         <div className="mt-4">
-          <Link to="/materials"><Button variant="outline" leftIcon={<ArrowLeft className="h-4 w-4" />}>Back to materials</Button></Link>
+          <Link to="/materials">
+            <Button variant="outline" leftIcon={<ArrowLeft className="h-4 w-4" />}>
+              Back to materials
+            </Button>
+          </Link>
         </div>
       </div>
     );
@@ -84,11 +153,189 @@ export function ResourceDetailPage() {
     }
   };
 
+  const handleCopyExcerpt = () => {
+    if (!preview?.preview_content) return;
+    navigator.clipboard.writeText(preview.preview_content);
+    setCopiedExcerpt(true);
+    setTimeout(() => setCopiedExcerpt(false), 2000);
+  };
+
+  const renderPreviewSection = () => {
+    if (previewLoading) {
+      return (
+        <Card className="p-8 text-center bg-white border border-ink-100">
+          <div className="animate-pulse space-y-3 max-w-md mx-auto">
+            <div className="h-4 bg-ink-100 rounded w-1/3 mx-auto"></div>
+            <div className="h-3 bg-ink-50 rounded w-3/4 mx-auto"></div>
+            <div className="h-3 bg-ink-50 rounded w-1/2 mx-auto"></div>
+          </div>
+          <p className="mt-4 text-xs text-ink-400">Loading resource preview…</p>
+        </Card>
+      );
+    }
+
+    if (previewAuthRequired) {
+      return (
+        <Card className="overflow-hidden border border-ink-200 shadow-xs">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
+            <span className="text-xs font-semibold text-ink-700 inline-flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-amber-600" /> Member Preview Available
+            </span>
+            <Badge tone="neutral">Sign-in Required</Badge>
+          </div>
+          <div className="p-6 bg-white text-center sm:text-left sm:flex sm:items-center sm:justify-between gap-6">
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-ink-900">Sign in to read this sample excerpt</h4>
+              <p className="text-xs text-ink-600 max-w-md">
+                The author or administrator has published a sample excerpt for verified and signed-in students.
+                Log in or create a free student account to preview this document.
+              </p>
+            </div>
+            <div className="mt-4 sm:mt-0 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setAuthDialog(true)}
+                leftIcon={<Lock className="h-3.5 w-3.5" />}
+              >
+                Sign in to view
+              </Button>
+            </div>
+          </div>
+        </Card>
+      );
+    }
+
+    if (preview?.preview_available) {
+      // 1. Text preview
+      if (preview.preview_type === 'text' && preview.preview_content) {
+        return (
+          <Card className="overflow-hidden border border-ink-200 shadow-xs">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
+              <span className="text-xs font-semibold text-ink-700 inline-flex items-center gap-1.5">
+                <FileCode className="h-4 w-4 text-teal-600" /> Sample Excerpt
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyExcerpt}
+                  className="inline-flex items-center gap-1 text-xs text-ink-600 hover:text-ink-950 font-medium px-2 py-0.5 rounded hover:bg-ink-100 transition"
+                >
+                  {copiedExcerpt ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5 text-ink-400" /> Copy excerpt
+                    </>
+                  )}
+                </button>
+                <Badge tone="teal">Verified Sample</Badge>
+              </div>
+            </div>
+            <div className="p-5 sm:p-6 bg-white max-h-96 overflow-y-auto font-mono text-xs sm:text-sm text-ink-800 whitespace-pre-wrap leading-relaxed select-text border-b border-ink-50">
+              {preview.preview_content}
+            </div>
+            <div className="px-4 py-2 bg-ink-50/50 flex items-center justify-between text-[11px] text-ink-500">
+              <span>Showing sample excerpt. Full document available on download.</span>
+              <span>{preview.preview_content.length} characters</span>
+            </div>
+          </Card>
+        );
+      }
+
+      // 2. Image preview
+      if (preview.preview_type === 'image' && preview.preview_url) {
+        const fullImgUrl = preview.preview_url.startsWith('http')
+          ? preview.preview_url
+          : `${API_BASE_URL}${preview.preview_url}`;
+
+        return (
+          <Card className="overflow-hidden border border-ink-200 shadow-xs">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
+              <span className="text-xs font-semibold text-ink-700 inline-flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-teal-600" /> Document Sample Image
+              </span>
+              <a
+                href={fullImgUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-teal-700 hover:text-teal-900 font-medium"
+              >
+                Open full size <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="p-4 bg-ink-50 flex items-center justify-center min-h-[240px] max-h-[460px] overflow-hidden">
+              <img
+                src={fullImgUrl}
+                alt={preview.title}
+                className="max-h-[420px] w-auto rounded-lg shadow-sm object-contain"
+                loading="lazy"
+              />
+            </div>
+          </Card>
+        );
+      }
+
+      // 3. PDF preview
+      if (preview.preview_type === 'pdf' && preview.preview_url) {
+        const fullPdfUrl = preview.preview_url.startsWith('http')
+          ? preview.preview_url
+          : `${API_BASE_URL}${preview.preview_url}`;
+
+        return (
+          <Card className="overflow-hidden border border-ink-200 shadow-xs">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
+              <span className="text-xs font-semibold text-ink-700 inline-flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-teal-600" /> Public PDF Preview
+              </span>
+              <a
+                href={fullPdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-teal-700 hover:text-teal-900 font-medium"
+              >
+                Open in new tab <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="bg-ink-100 h-[480px] w-full">
+              <iframe
+                src={`${fullPdfUrl}#toolbar=0`}
+                title={preview.title}
+                className="w-full h-full border-none"
+              />
+            </div>
+          </Card>
+        );
+      }
+    }
+
+    // Default / No preview published
+    return (
+      <Card className="overflow-hidden border border-ink-100">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
+          <span className="text-xs font-semibold text-ink-600 inline-flex items-center gap-1.5">
+            <FileText className="h-4 w-4 text-ink-400" /> Resource information
+          </span>
+          <span className="text-xs text-ink-400">No preview provided</span>
+        </div>
+        <div className="p-5 sm:p-7 bg-white">
+          <p className="text-sm text-ink-600">
+            No preview has been published for this item. You can inspect its course code, academic level, and description, or request access to download the full material.
+          </p>
+        </div>
+      </Card>
+    );
+  };
+
   return (
     <div className="container-page py-6 sm:py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1.5 text-sm text-ink-500 mb-5" aria-label="Breadcrumb">
-        <Link to="/materials" className="hover:text-teal-700 inline-flex items-center gap-1"><ArrowLeft className="h-3.5 w-3.5" /> Materials</Link>
+        <Link to="/materials" className="hover:text-teal-700 inline-flex items-center gap-1">
+          <ArrowLeft className="h-3.5 w-3.5" /> Materials
+        </Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="truncate text-ink-700">{resource.course.code}</span>
       </nav>
@@ -99,9 +346,18 @@ export function ResourceDetailPage() {
             <Badge tone="teal">{resource.type}</Badge>
             <Badge tone="neutral">Level {resource.level}</Badge>
             <Badge tone="neutral">{resource.semester} semester</Badge>
-            <Badge tone="neutral">{resource.accessPolicy === 'public' ? <Download className="h-3 w-3" /> : <Lock className="h-3 w-3" />} {resource.accessPolicy === 'public' ? 'Public access' : 'Access controlled'}</Badge>
+            <Badge tone="neutral">
+              {resource.accessPolicy === 'public' ? (
+                <Download className="h-3 w-3" />
+              ) : (
+                <Lock className="h-3 w-3" />
+              )}{' '}
+              {resource.accessPolicy === 'public' ? 'Public access' : 'Access controlled'}
+            </Badge>
           </div>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 text-balance">{resource.title}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 text-balance">
+            {resource.title}
+          </h1>
           <p className="mt-2 text-sm font-semibold text-ink-600">
             <Link to={`/materials?q=${encodeURIComponent(resource.course.code)}`} className="hover:text-teal-700">
               {resource.course.code} &middot; {resource.course.title}
@@ -114,28 +370,21 @@ export function ResourceDetailPage() {
             <p className="mt-3 text-xs text-ink-500 italic">{resource.authorTag}</p>
           )}
 
-          {/* Preview status */}
+          {/* Real Preview Section */}
           <section className="mt-7">
             <div className="flex items-center gap-2 mb-3">
-              <h2 className="font-display text-lg font-bold text-ink-950">Preview</h2>
+              <Eye className="h-5 w-5 text-teal-600" />
+              <h2 className="font-display text-lg font-bold text-ink-950">Resource Preview</h2>
             </div>
-            <Card className="overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 bg-ink-50 border-b border-ink-100">
-                <span className="text-xs font-semibold text-ink-600 inline-flex items-center gap-1.5">
-                  <FileText className="h-4 w-4" /> Resource information
-                </span>
-                <span className="text-xs text-ink-400">No preview provided</span>
-              </div>
-              <div className="p-5 sm:p-7 bg-white">
-                <p className="text-sm text-ink-600">No preview has been published for this item. You can view its details and request access to the full resource.</p>
-              </div>
-            </Card>
+            {renderPreviewSection()}
           </section>
 
           {/* Related */}
           {related.length > 0 && (
             <section className="mt-10">
-              <h2 className="font-display text-lg font-bold text-ink-950 mb-4">Related resources for {resource.course.code}</h2>
+              <h2 className="font-display text-lg font-bold text-ink-950 mb-4">
+                Related resources for {resource.course.code}
+              </h2>
               <div className="grid sm:grid-cols-2 gap-4">
                 {related.map((r) => (
                   <ResourceCard key={r.id} resource={r} course={r.course} />
@@ -157,7 +406,13 @@ export function ResourceDetailPage() {
                 : 'Sign in to unlock the full material. A semester subscription may also be required.'}
             </p>
             <div className="mt-4 space-y-2.5">
-              <Button fullWidth variant="outline" onClick={handleDownload} loading={downloading} leftIcon={<Download className="h-4 w-4" />}>
+              <Button
+                fullWidth
+                variant="outline"
+                onClick={handleDownload}
+                loading={downloading}
+                leftIcon={<Download className="h-4 w-4" />}
+              >
                 Download material
               </Button>
               <Link to={`/practice?course=${resource.course.id}`}>
@@ -170,7 +425,11 @@ export function ResourceDetailPage() {
             {downloadError && (
               <Alert tone="warning" className="mt-4">
                 <p className="text-sm">{downloadError}</p>
-                <Link to="/pricing" className="mt-2 inline-block"><Button size="sm" leftIcon={<Tag className="h-3.5 w-3.5" />}>View packages</Button></Link>
+                <Link to="/pricing" className="mt-2 inline-block">
+                  <Button size="sm" leftIcon={<Tag className="h-3.5 w-3.5" />}>
+                    View packages
+                  </Button>
+                </Link>
               </Alert>
             )}
             {!profile && (
@@ -189,10 +448,17 @@ export function ResourceDetailPage() {
               <Row label="Semester" value={resource.semester} />
               <Row label="File size" value={formatFileSize(resource.fileSizeBytes)} />
               <Row label="Added" value={formatRelative(resource.uploadedAt)} />
-              <Row label="Content preview" value="Not provided" />
+              <Row
+                label="Content preview"
+                value={
+                  preview?.preview_available
+                    ? `${preview.preview_type === 'text' ? 'Text Excerpt' : preview.preview_type === 'image' ? 'Sample Image' : 'PDF Sample'}`
+                    : previewAuthRequired
+                    ? 'Requires sign-in'
+                    : 'Not published'
+                }
+              />
             </dl>
-            <div className="mt-3 pt-3 border-t border-ink-100 flex flex-wrap gap-1.5">
-            </div>
           </Card>
 
           <Card className="p-5 bg-ink-950 text-white border-ink-950">
@@ -200,7 +466,9 @@ export function ResourceDetailPage() {
               <ShieldCheck className="h-5 w-5 text-teal-300 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-white">How access works</p>
-                <p className="text-xs text-ink-300 mt-1">The service checks your account and entitlements before granting access to a protected download.</p>
+                <p className="text-xs text-ink-300 mt-1">
+                  The service checks your account and entitlements before granting access to a protected download.
+                </p>
               </div>
             </div>
           </Card>
@@ -219,7 +487,9 @@ export function ResourceDetailPage() {
 
 function formatFileSize(bytes?: number): string {
   if (!bytes) return 'Not provided';
-  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return bytes < 1024 * 1024
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

@@ -18,12 +18,17 @@ class ResourceCategory(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
+
 class Resource(Base):
     __tablename__ = "resources"
     __table_args__ = (
         CheckConstraint(
             "access_policy IN ('subscription_or_entitlement', 'entitlement_only', 'public')",
             name="ck_resource_access_policy",
+        ),
+        CheckConstraint(
+            "preview_policy IN ('none', 'public_sample', 'authenticated_only')",
+            name="ck_resource_preview_policy",
         ),
     )
 
@@ -56,6 +61,13 @@ class Resource(Base):
         server_default="subscription_or_entitlement",
         nullable=False,
     )
+    preview_policy: Mapped[str] = mapped_column(
+        String(30),
+        default="none",
+        server_default="none",
+        nullable=False,
+    )
+    preview_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     requires_verification: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
     )

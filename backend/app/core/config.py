@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,8 +9,17 @@ class Settings(BaseSettings):
     api_v1_str: str = Field(default="/api/v1", alias="API_V1_STR")
     database_url: str = Field(
         default="postgresql+psycopg://postgres:postgres@localhost:5432/learning_platform_dev",
-        alias="DATABASE_URL",
+        validation_alias=AliasChoices("DATABASE_URL", "POSTGRES_URL"),
     )
+
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://") :]
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://") :]
+        return v
     jwt_secret_key: str = Field(default="", alias="JWT_SECRET_KEY")
     access_token_expire_minutes: int = Field(default=20, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     verification_document_retention_days: int = Field(

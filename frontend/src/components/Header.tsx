@@ -3,7 +3,20 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/auth/AuthContext';
-import { Menu, X, LogIn, UserPlus, LayoutDashboard, LogOut, BookOpen, ListChecks, Info, Tag, GraduationCap } from 'lucide-react';
+import {
+  Menu,
+  X,
+  LogIn,
+  UserPlus,
+  LayoutDashboard,
+  LogOut,
+  BookOpen,
+  ListChecks,
+  Info,
+  Tag,
+  GraduationCap,
+  Shield,
+} from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -15,7 +28,7 @@ const NAV = [
 ];
 
 export function Header() {
-  const { isAuthenticated, signOut } = useAuth();
+  const { isAuthenticated, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -52,6 +65,18 @@ export function Header() {
           <div className="hidden lg:flex items-center gap-2">
             {isAuthenticated ? (
               <>
+                {isAdmin && (
+                  <Link to="/admin">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-teal-600 text-teal-700 hover:bg-teal-50 font-semibold"
+                      leftIcon={<Shield className="h-4 w-4 text-teal-600" />}
+                    >
+                      Admin Portal
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/dashboard">
                   <Button variant="outline" size="sm" leftIcon={<LayoutDashboard className="h-4 w-4" />}>
                     Dashboard
@@ -111,18 +136,38 @@ export function Header() {
             <div className="pt-3 mt-2 border-t border-ink-100 space-y-2">
               {isAuthenticated ? (
                 <>
+                  {isAdmin && (
+                    <Link to="/admin" onClick={close}>
+                      <Button
+                        fullWidth
+                        variant="outline"
+                        className="border-teal-600 text-teal-700 hover:bg-teal-50"
+                        leftIcon={<Shield className="h-4 w-4" />}
+                      >
+                        Admin Portal
+                      </Button>
+                    </Link>
+                  )}
                   <Link to="/dashboard" onClick={close}>
-                    <Button fullWidth variant="outline" leftIcon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</Button>
+                    <Button fullWidth variant="outline" leftIcon={<LayoutDashboard className="h-4 w-4" />}>
+                      Dashboard
+                    </Button>
                   </Link>
-                  <Button fullWidth variant="ghost" onClick={handleSignOut} leftIcon={<LogOut className="h-4 w-4" />}>Sign out</Button>
+                  <Button fullWidth variant="ghost" onClick={handleSignOut} leftIcon={<LogOut className="h-4 w-4" />}>
+                    Sign out
+                  </Button>
                 </>
               ) : (
                 <>
                   <Link to="/login" onClick={close}>
-                    <Button fullWidth variant="outline" leftIcon={<LogIn className="h-4 w-4" />}>Log in</Button>
+                    <Button fullWidth variant="outline" leftIcon={<LogIn className="h-4 w-4" />}>
+                      Log in
+                    </Button>
                   </Link>
                   <Link to="/register" onClick={close}>
-                    <Button fullWidth leftIcon={<UserPlus className="h-4 w-4" />}>Create account</Button>
+                    <Button fullWidth leftIcon={<UserPlus className="h-4 w-4" />}>
+                      Create account
+                    </Button>
                   </Link>
                 </>
               )}

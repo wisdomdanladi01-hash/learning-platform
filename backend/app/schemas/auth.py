@@ -74,6 +74,8 @@ class UserResponse(BaseModel):
     email: EmailStr
     full_name: str
     is_active: bool
+    is_admin: bool = False
+    role: str | None = None
 
 
 class UserProfileUpdate(BaseModel):

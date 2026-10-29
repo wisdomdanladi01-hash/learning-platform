@@ -12,17 +12,21 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_admin, get_current_user
+from app.api.dependencies import bearer_scheme, get_current_admin, get_current_user
 from app.core.config import settings
+from app.core.security import decode_access_token
 from app.db.database import get_db
 from app.models.resource import Resource
 from app.models.user import Role, User
 from app.schemas.resource import (
+    PreviewPolicy,
     ResourceCategoryCreate,
     ResourceCategoryResponse,
+    ResourcePreviewResponse,
     ResourceResponse,
     ResourceUpdate,
 )
@@ -71,6 +75,20 @@ def _upload_error(exc: ValueError, content: bytes) -> HTTPException:
     return HTTPException(status_code=code, detail=str(exc))
 
 
+def _get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None,
+    db: Session,
+) -> User | None:
+    if credentials is None:
+        return None
+    try:
+        user_id = decode_access_token(credentials.credentials)
+        user = db.get(User, user_id)
+        return user if user and user.is_active else None
+    except Exception:
+        return None
+
+
 @router.get("/categories", response_model=list[ResourceCategoryResponse])
 def resource_categories(
     _user: User = Depends(get_current_user),
@@ -114,6 +132,154 @@ def read_resource(
     if not is_admin and not resource_is_available(resource):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found.")
     return resource
+
+
+@router.get("/{resource_id}/preview", response_model=ResourcePreviewResponse)
+def get_resource_preview(
+    resource_id: int,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
+    db: Session = Depends(get_db),
+) -> ResourcePreviewResponse:
+    resource = _get_resource_or_404(db, resource_id)
+    if not resource_is_available(resource):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found.")
+
+    user = _get_optional_user(credentials, db)
+    policy = resource.preview_policy or "none"
+
+    # If preview policy is none and access is not public:
+    if policy == "none" and resource.access_policy != "public":
+        return ResourcePreviewResponse(
+            id=resource.id,
+            title=resource.title,
+            file_name=resource.file_name,
+            mime_type=resource.mime_type,
+            preview_policy="none",
+            preview_available=False,
+            preview_type="none",
+            message="No preview has been published for this item.",
+        )
+
+    # If preview requires authentication:
+    if policy == "authenticated_only" and user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign in to view this preview.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Determine preview type and content
+    preview_content = resource.preview_content
+    mime = (resource.mime_type or "").lower()
+
+    if preview_content:
+        return ResourcePreviewResponse(
+            id=resource.id,
+            title=resource.title,
+            file_name=resource.file_name,
+            mime_type=resource.mime_type,
+            preview_policy=policy,
+            preview_available=True,
+            preview_type="text",
+            preview_content=preview_content,
+            message="Approved preview sample.",
+        )
+
+    if mime.startswith("image/"):
+        return ResourcePreviewResponse(
+            id=resource.id,
+            title=resource.title,
+            file_name=resource.file_name,
+            mime_type=resource.mime_type,
+            preview_policy=policy,
+            preview_available=True,
+            preview_type="image",
+            preview_url=f"/api/v1/resources/{resource.id}/preview/file",
+            message="Image preview.",
+        )
+
+    if mime == "application/pdf":
+        is_public_doc = resource.access_policy == "public"
+        return ResourcePreviewResponse(
+            id=resource.id,
+            title=resource.title,
+            file_name=resource.file_name,
+            mime_type=resource.mime_type,
+            preview_policy=policy,
+            preview_available=is_public_doc or bool(preview_content),
+            preview_type="pdf" if is_public_doc else "none",
+            preview_url=f"/api/v1/resources/{resource.id}/preview/file" if is_public_doc else None,
+            preview_content=preview_content,
+            message="PDF preview available." if is_public_doc else "Preview excerpt not yet published for this PDF.",
+        )
+
+    if mime in ("text/plain", "text/markdown"):
+        return ResourcePreviewResponse(
+            id=resource.id,
+            title=resource.title,
+            file_name=resource.file_name,
+            mime_type=resource.mime_type,
+            preview_policy=policy,
+            preview_available=True,
+            preview_type="text",
+            preview_content=preview_content or "Text material preview.",
+            message="Text preview.",
+        )
+
+    return ResourcePreviewResponse(
+        id=resource.id,
+        title=resource.title,
+        file_name=resource.file_name,
+        mime_type=resource.mime_type,
+        preview_policy=policy,
+        preview_available=False,
+        preview_type="unsupported",
+        message=f"In-browser preview is unavailable for {resource.mime_type} files. Please download the document to view it.",
+    )
+
+
+@router.get("/{resource_id}/preview/file", response_class=FileResponse)
+def stream_preview_file(
+    resource_id: int,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    resource = _get_resource_or_404(db, resource_id)
+    if not resource_is_available(resource):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found.")
+
+    user = _get_optional_user(credentials, db)
+    policy = resource.preview_policy or "none"
+
+    if policy == "authenticated_only" and user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign in to view this preview file.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    mime = (resource.mime_type or "").lower()
+    is_image = mime.startswith("image/")
+    is_public = resource.access_policy == "public"
+
+    # Only images or public documents may stream full file content as preview
+    if not (is_image or is_public):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Full file access is restricted. Use the published sample preview or sign in with an active subscription.",
+        )
+
+    try:
+        path = resource_download_path(resource)
+    except (NotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return FileResponse(
+        path=path,
+        media_type=resource.mime_type,
+        filename=f"preview-{resource.file_name}",
+        content_disposition_type="inline",
+    )
 
 
 @router.get("/{resource_id}/download", response_class=FileResponse)
@@ -182,6 +348,10 @@ def upload_resource(
     access_policy: Annotated[
         Literal["subscription_or_entitlement", "entitlement_only", "public"], Form()
     ] = "subscription_or_entitlement",
+    preview_policy: Annotated[
+        Literal["none", "public_sample", "authenticated_only"], Form()
+    ] = "none",
+    preview_content: Annotated[str | None, Form(max_length=20_000)] = None,
     requires_verification: Annotated[bool, Form()] = True,
     available_from: Annotated[datetime | None, Form()] = None,
     available_until: Annotated[datetime | None, Form()] = None,
@@ -208,6 +378,8 @@ def upload_resource(
             resource_type_id=resource_type_id,
             is_published=is_published,
             access_policy=access_policy,
+            preview_policy=preview_policy,
+            preview_content=preview_content,
             requires_verification=requires_verification,
             available_from=available_from,
             available_until=available_until,

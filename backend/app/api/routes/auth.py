@@ -14,7 +14,7 @@ from app.core.security import (
 )
 from app.core.rate_limit import enforce_auth_rate_limit
 from app.db.database import get_db
-from app.models.user import User
+from app.models.user import Role, User
 from app.schemas.auth import (
     AccessTokenResponse,
     LoginRequest,
@@ -33,6 +33,19 @@ def _auth_unavailable() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Authentication is not configured. Set a secure JWT_SECRET_KEY.",
+    )
+
+
+def _user_response(user: User, db: Session) -> UserResponse:
+    role_name = db.scalar(select(Role.name).where(Role.id == user.role_id)) if user.role_id else None
+    is_admin = bool(user.is_superuser or role_name == "admin")
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        is_active=user.is_active,
+        is_admin=is_admin,
+        role=role_name or ("admin" if is_admin else "student"),
     )
 
 
@@ -99,13 +112,11 @@ def login(
 
 
 @router.get("/me", response_model=UserResponse)
-def read_current_user(user: User = Depends(get_current_user)) -> UserResponse:
-    return UserResponse(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        is_active=user.is_active,
-    )
+def read_current_user(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    return _user_response(user, db)
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -134,9 +145,4 @@ def update_current_user(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Profile update is temporarily unavailable.",
         ) from exc
-    return UserResponse(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        is_active=user.is_active,
-    )
+    return _user_response(user, db)

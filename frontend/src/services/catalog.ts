@@ -5,6 +5,7 @@ import type {
   Faculty,
   Level,
   Resource,
+  ResourcePreview,
   ResourceType,
   Semester,
 } from '@/types';
@@ -30,6 +31,8 @@ interface ApiResource {
   semester: { id: number; number: number } | null;
   access_policy: string;
   preview_allowed: boolean;
+  preview_policy?: 'none' | 'public_sample' | 'authenticated_only';
+  preview_content?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,8 +113,9 @@ function mapResource(item: ApiResource): CatalogResource {
     level: item.academic_level?.code ?? '',
     semester: item.semester?.number === 2 ? 'Second' : 'First',
     description: item.description ?? '',
-    previewAvailable: false,
-    previewContent: '',
+    previewAvailable: Boolean(item.preview_allowed || item.preview_policy !== 'none' || item.preview_content),
+    previewContent: item.preview_content ?? '',
+    previewPolicy: item.preview_policy ?? 'none',
     accessPolicy: item.access_policy,
     fileSizeBytes: item.file_size_bytes,
     uploadedAt: item.created_at,
@@ -172,6 +176,10 @@ export const catalogService = {
       if (error instanceof Error && 'status' in error && error.status === 404) return undefined;
       throw error;
     }
+  },
+
+  async getResourcePreview(id: string): Promise<ResourcePreview> {
+    return apiRequest<ResourcePreview>(`/resources/${encodeURIComponent(id)}/preview`);
   },
 
   async getRelatedResources(id: string, limit = 3): Promise<CatalogResource[]> {

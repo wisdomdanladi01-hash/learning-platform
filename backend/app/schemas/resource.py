@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 AccessPolicy = Literal["subscription_or_entitlement", "entitlement_only", "public"]
+PreviewPolicy = Literal["none", "public_sample", "authenticated_only"]
 
 
 class ResourceResponse(BaseModel):
@@ -25,11 +26,26 @@ class ResourceResponse(BaseModel):
     resource_type_id: int | None
     is_published: bool
     access_policy: AccessPolicy
+    preview_policy: PreviewPolicy = "none"
+    preview_content: str | None = None
     requires_verification: bool
     available_from: datetime | None
     available_until: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class ResourcePreviewResponse(BaseModel):
+    id: int
+    title: str
+    file_name: str
+    mime_type: str
+    preview_policy: PreviewPolicy
+    preview_available: bool
+    preview_type: Literal["text", "markdown", "image", "pdf", "unsupported", "none"]
+    preview_content: str | None = None
+    preview_url: str | None = None
+    message: str | None = None
 
 
 class ResourceUpdate(BaseModel):
@@ -45,6 +61,8 @@ class ResourceUpdate(BaseModel):
     resource_type_id: int | None = Field(default=None, gt=0)
     is_published: bool | None = None
     access_policy: AccessPolicy | None = None
+    preview_policy: PreviewPolicy | None = None
+    preview_content: str | None = Field(default=None, max_length=20_000)
     requires_verification: bool | None = None
     available_from: datetime | None = None
     available_until: datetime | None = None

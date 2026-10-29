@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from '@/auth/AuthContext';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { AppLayout } from '@/layouts/AppLayout';
+import { AdminLayout } from '@/layouts/AdminLayout';
 import { HomePage } from '@/pages/HomePage';
 import { MaterialsPage } from '@/pages/MaterialsPage';
 import { CourseCataloguePage } from '@/pages/CourseCataloguePage';
@@ -19,6 +20,15 @@ import { PaymentsPage } from '@/pages/PaymentsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { AboutPage, HelpPage, PrivacyPage, TermsPage } from '@/pages/StaticPages';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+
+// Admin pages
+import { AdminOverviewPage } from '@/pages/admin/AdminOverviewPage';
+import { AdminAcademicPage } from '@/pages/admin/AdminAcademicPage';
+import { AdminCourseOfferingsPage } from '@/pages/admin/AdminCourseOfferingsPage';
+import { AdminCsvImportPage } from '@/pages/admin/AdminCsvImportPage';
+import { AdminResourcesPage } from '@/pages/admin/AdminResourcesPage';
+import { AdminVerificationsPage } from '@/pages/admin/AdminVerificationsPage';
+import { AdminPackagesPage } from '@/pages/admin/AdminPackagesPage';
 
 const router = createBrowserRouter([
   {
@@ -49,6 +59,19 @@ const router = createBrowserRouter([
       { path: '/payment/return', element: <PaymentResultPage /> },
       { path: '/payments/result', element: <PaymentResultPage /> },
       { path: '/profile', element: <ProfilePage /> },
+    ],
+  },
+  {
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <AdminOverviewPage /> },
+      { path: 'academic', element: <AdminAcademicPage /> },
+      { path: 'courses', element: <AdminCourseOfferingsPage /> },
+      { path: 'import', element: <AdminCsvImportPage /> },
+      { path: 'resources', element: <AdminResourcesPage /> },
+      { path: 'verification', element: <AdminVerificationsPage /> },
+      { path: 'packages', element: <AdminPackagesPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

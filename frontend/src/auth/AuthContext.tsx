@@ -7,6 +7,8 @@ interface ApiUser {
   email: string;
   full_name: string;
   is_active: boolean;
+  is_admin?: boolean;
+  role?: string;
 }
 
 interface ApiDashboard {
@@ -32,6 +34,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (input: {
     firstName: string;
@@ -67,6 +70,8 @@ function mapProfile(user: ApiUser, dashboard: ApiDashboard): StudentProfile {
     },
     hasSubscription: Boolean(subscription?.is_active),
     subscriptionExpiresAt: subscription?.is_active ? subscription.ends_at : null,
+    isAdmin: Boolean(user.is_admin),
+    role: user.role,
   };
 }
 
@@ -188,7 +193,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((current) => ({
       ...current,
       profile: current.profile
-        ? { ...current.profile, email: updated.email, fullName: updated.full_name }
+        ? {
+            ...current.profile,
+            email: updated.email,
+            fullName: updated.full_name,
+            isAdmin: Boolean(updated.is_admin),
+            role: updated.role,
+          }
         : current.profile,
     }));
   }, [state.profile, state.token]);
@@ -196,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     ...state,
     isAuthenticated: Boolean(state.token && state.profile),
+    isAdmin: Boolean(state.profile?.isAdmin),
     signIn,
     register,
     signOut,

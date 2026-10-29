@@ -42,11 +42,25 @@ export interface Resource {
   description: string;
   previewAvailable: boolean;
   previewContent: string;
+  previewPolicy?: 'none' | 'public_sample' | 'authenticated_only';
   accessPolicy?: string;
   pages?: number;
   fileSizeBytes?: number;
   uploadedAt: string;
   tags: string[];
+}
+
+export interface ResourcePreview {
+  id: number;
+  title: string;
+  file_name: string;
+  mime_type: string;
+  preview_policy: 'none' | 'public_sample' | 'authenticated_only';
+  preview_available: boolean;
+  preview_type: 'text' | 'markdown' | 'image' | 'pdf' | 'unsupported' | 'none';
+  preview_content?: string | null;
+  preview_url?: string | null;
+  message?: string | null;
 }
 
 export interface AcademicProfile {
@@ -66,6 +80,8 @@ export interface StudentProfile {
   academic: AcademicProfile;
   hasSubscription: boolean;
   subscriptionExpiresAt: string | null;
+  isAdmin: boolean;
+  role?: string;
 }
 
 export interface AcademicCatalogue {
@@ -113,4 +129,106 @@ export interface AcademicCatalogue {
   }>;
   semesters: Array<{ id: number; number: number; academic_session_id: number }>;
   resource_types: Array<{ id: number; name: string }>;
+}
+
+export interface AssessmentQuestion {
+  id: string;
+  questionNumber: number;
+  text: string;
+  codeSnippet?: string;
+  options: {
+    key: 'A' | 'B' | 'C' | 'D';
+    text: string;
+  }[];
+  correctAnswer: 'A' | 'B' | 'C' | 'D';
+  explanation: string;
+}
+
+export interface PracticeAssessment {
+  id: string;
+  title: string;
+  description: string;
+  courseCode: string;
+  courseTitle: string;
+  level: string;
+  semester: string;
+  durationMinutes: number;
+  isDemonstration: boolean;
+  difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  questions: AssessmentQuestion[];
+}
+
+export interface AdminOverview {
+  metrics: {
+    total_resources: number;
+    published_resources: number;
+    total_faculties: number;
+    total_departments: number;
+    total_programmes: number;
+    total_courses: number;
+    total_course_offerings: number;
+    verified_offerings: number;
+    unverified_offerings: number;
+    pending_verifications: number;
+    total_packages: number;
+    total_payments: number;
+    succeeded_payments: number;
+  };
+  recent_resources: Array<{
+    id: number;
+    title: string;
+    file_name: string;
+    mime_type: string;
+    is_published: boolean;
+    access_policy: string;
+    preview_policy: string;
+    created_at: string;
+  }>;
+  recent_submissions: Array<{
+    id: number;
+    user_id: number;
+    status: string;
+    matriculation_number: string | null;
+    jamb_registration_number: string | null;
+    created_at: string;
+  }>;
+}
+
+export interface AdminCourseOffering {
+  id: number;
+  course_id: number;
+  course_code: string;
+  course_title: string;
+  programme_id: number | null;
+  programme_name?: string | null;
+  department_id: number | null;
+  department_name?: string | null;
+  curriculum_version: string;
+  academic_session: string | null;
+  level: string | null;
+  semester: number | null;
+  credit_units: number | null;
+  course_type: string | null;
+  verification_status: 'verified' | 'user_supplied' | 'pending_confirmation';
+  source_note: string | null;
+  is_active: boolean;
+}
+
+export interface VerificationQueueItem {
+  id: number;
+  user_id: number;
+  status: string;
+  jamb_registration_number: string | null;
+  matriculation_number: string | null;
+  programme_id: number | null;
+  department_id: number | null;
+  admission_session_id: number | null;
+  claimed_level_id: number | null;
+}
+
+export interface VerificationDocument {
+  id: number;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
 }
