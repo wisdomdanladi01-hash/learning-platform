@@ -21,6 +21,7 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
   token: string | null = getAccessToken(),
+  retries = 1,
 ): Promise<T> {
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -32,6 +33,11 @@ export async function apiRequest<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
   } catch {
+    if (retries > 0) {
+      // Serverless cold start or momentary network hiccup: wait 1s and retry once
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return apiRequest<T>(path, init, token, retries - 1);
+    }
     throw new ApiError('Could not reach the Study Hub service. Check that the backend is running and try again.', 0);
   }
 
