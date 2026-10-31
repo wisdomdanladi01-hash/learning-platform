@@ -69,6 +69,8 @@ def list_subscription_plans(
             {
                 "id": package.id,
                 "name": package.name,
+                "description": package.description,
+                "package_type": package.package_type,
                 "price_minor": package.price_minor,
                 "currency": package.currency,
                 "duration_days": max(

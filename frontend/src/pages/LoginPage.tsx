@@ -1,12 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext';
-import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { AuthShell } from '@/components/AuthShell';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, KeyRound, Sparkles } from 'lucide-react';
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -37,63 +36,114 @@ export function LoginPage() {
     if (result.ok) {
       navigate(redirect ? decodeURIComponent(redirect) : '/dashboard', { replace: true });
     } else {
-      setError(result.error ?? 'Unable to sign in.');
+      setError(result.error ?? 'Unable to sign in. Please verify your credentials.');
     }
   };
 
   return (
     <AuthShell>
-        <Card className="border-0 shadow-none sm:border sm:border-ink-100 sm:shadow-card">
-          <Link to={redirect ? decodeURIComponent(redirect) : '/'} className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500 hover:text-teal-700 mb-5">
-            <ArrowLeft className="h-4 w-4" /> Back
-          </Link>
-          <h1 className="font-display text-2xl font-bold text-ink-950">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-ink-600">Sign in to continue to your study dashboard.</p>
+      <div className="w-full">
+        <Link
+          to={redirect ? decodeURIComponent(redirect) : '/'}
+          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-ink-500 hover:text-teal-700 transition-colors mb-4 sm:mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to platform
+        </Link>
 
-          {error && <Alert tone="error" className="mt-5"><p className="text-sm">{error}</p></Alert>}
+        <div className="mb-6">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200/60 text-teal-800 text-xs font-semibold mb-3">
+            <Sparkles className="h-3 w-3 text-teal-600" />
+            <span>SAZU Student Portal</span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink-950 tracking-tight">
+            Welcome back
+          </h1>
+          <p className="mt-2 text-sm sm:text-base leading-relaxed text-ink-600">
+            Sign in to access your course materials, past questions, and practice assessments.
+          </p>
+        </div>
 
-          <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
+        {error && (
+          <Alert tone="error" className="mb-6">
+            <p className="text-sm font-medium leading-normal">{error}</p>
+          </Alert>
+        )}
+
+        <form onSubmit={submit} className="space-y-5" noValidate>
+          <div>
+            <label className="block text-sm font-semibold text-ink-800 mb-1.5">
+              Email Address
+            </label>
             <Input
-              label="Email"
               type="email"
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              leftIcon={<Mail className="h-4 w-4" />}
+              placeholder="e.g. yourname@sazu.edu.ng"
+              leftIcon={<Mail className="h-4 w-4 text-ink-400" />}
+              className="text-base sm:text-sm"
+              required
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-sm font-semibold text-ink-800">
+                Password
+              </label>
+            </div>
             <Input
-              label="Password"
               type={showPw ? 'text' : 'password'}
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your password"
-              leftIcon={<Lock className="h-4 w-4" />}
+              placeholder="Enter your password"
+              leftIcon={<Lock className="h-4 w-4 text-ink-400" />}
+              className="text-base sm:text-sm"
               rightSlot={
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-lg text-ink-400 hover:bg-ink-100"
+                  className="h-10 w-10 inline-flex items-center justify-center rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors focus:outline-none"
                   aria-label={showPw ? 'Hide password' : 'Show password'}
                 >
                   {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               }
+              required
             />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-500 inline-flex items-center gap-1"><KeyRound className="h-3.5 w-3.5" /> Password recovery is not available yet.</span>
-            </div>
-            <Button type="submit" fullWidth size="lg" loading={loading}>Sign in</Button>
-          </form>
+          </div>
 
-          <p className="mt-6 text-center text-sm text-ink-600">
-            Don't have an account?{' '}
-            <Link to={redirect ? `/register?redirect=${redirect}` : '/register'} className="font-semibold text-teal-700 hover:text-teal-800">
-              Create one
+          <div className="flex items-center justify-between text-xs text-ink-500 py-1">
+            <span className="inline-flex items-center gap-1.5">
+              <KeyRound className="h-3.5 w-3.5 text-ink-400" />
+              <span>Need help? Contact support or department representative.</span>
+            </span>
+          </div>
+
+          <Button
+            type="submit"
+            fullWidth
+            size="lg"
+            loading={loading}
+            className="h-12 text-base font-semibold shadow-md active:scale-[0.99] transition-transform"
+          >
+            Sign in to Study Hub
+          </Button>
+        </form>
+
+        <div className="mt-8 pt-6 border-t border-ink-100 text-center">
+          <p className="text-sm text-ink-600">
+            Don't have an account yet?{' '}
+            <Link
+              to={redirect ? `/register?redirect=${redirect}` : '/register'}
+              className="font-bold text-teal-700 hover:text-teal-800 underline underline-offset-2 ml-1"
+            >
+              Create student account
             </Link>
           </p>
-        </Card>
+        </div>
+      </div>
     </AuthShell>
   );
 }

@@ -27,6 +27,7 @@ import {
   Check,
   FileCode,
   Image as ImageIcon,
+  Sparkles,
 } from 'lucide-react';
 import { formatRelative } from '@/utils/format';
 
@@ -415,7 +416,7 @@ export function ResourceDetailPage() {
               >
                 Download material
               </Button>
-              <Link to={`/practice?course=${resource.course.id}`}>
+              <Link to={`/practice?course=${encodeURIComponent(resource.course.code)}`}>
                 <Button fullWidth variant="ghost" leftIcon={<ListChecks className="h-4 w-4" />}>
                   Practise related questions
                 </Button>
@@ -424,12 +425,19 @@ export function ResourceDetailPage() {
 
             {downloadError && (
               <Alert tone="warning" className="mt-4">
-                <p className="text-sm">{downloadError}</p>
-                <Link to="/pricing" className="mt-2 inline-block">
-                  <Button size="sm" leftIcon={<Tag className="h-3.5 w-3.5" />}>
-                    View packages
-                  </Button>
-                </Link>
+                <p className="text-xs sm:text-sm">{downloadError}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link to="/pricing">
+                    <Button size="sm" leftIcon={<Tag className="h-3.5 w-3.5" />}>
+                      Unlock for ₦300
+                    </Button>
+                  </Link>
+                  <Link to="/pricing">
+                    <Button size="sm" variant="outline">
+                      Semester Pass (₦1,500)
+                    </Button>
+                  </Link>
+                </div>
               </Alert>
             )}
             {!profile && (
@@ -438,6 +446,36 @@ export function ResourceDetailPage() {
               </p>
             )}
           </Card>
+
+          {/* Micro-access: Single Material & Practice Pass */}
+          {(!profile || !profile.hasSubscription) && (
+            <Card className="p-5 border-teal-200/90 bg-gradient-to-br from-teal-50/70 via-white to-white shadow-xs">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-4 w-4 text-teal-700" />
+                <h4 className="font-display font-bold text-ink-950 text-sm">
+                  Single Material & Practice Pass
+                </h4>
+              </div>
+              <p className="text-xs text-ink-600 leading-relaxed">
+                Need only this document? Pay <span className="font-bold text-ink-900">₦300</span> to download this material and immediately open all related practice test questions for <span className="font-semibold text-ink-900">{resource.course.code}</span>.
+              </p>
+              <div className="mt-4 space-y-2">
+                <Link to="/pricing">
+                  <Button fullWidth size="sm" className="font-semibold shadow-xs">
+                    Unlock Material (₦300)
+                  </Button>
+                </Link>
+                <div className="text-center pt-1">
+                  <Link
+                    to="/pricing"
+                    className="text-[11px] font-semibold text-teal-700 hover:text-teal-900 hover:underline"
+                  >
+                    Or get full semester access for ₦1,500 &rarr;
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <Card className="p-5">
             <h3 className="font-display font-bold text-ink-950 text-sm">Resource details</h3>

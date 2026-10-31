@@ -4,6 +4,7 @@ export interface SubscriptionPackage {
   id: number;
   name: string;
   description: string | null;
+  package_type?: string;
   price_minor: number;
   currency: string;
   duration_days: number;
