@@ -1,5 +1,7 @@
-from fastapi import FastAPI
+import logging
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes.health import router as health_router
 from app.api.routes.auth import router as auth_router
@@ -13,6 +15,8 @@ from app.api.routes.student_portal import router as student_portal_router
 from app.api.routes.verification import admin_router as verification_admin_router
 from app.api.routes.verification import router as verification_router
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title=settings.app_name,
@@ -29,6 +33,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled server exception: %s", exc)
+    origin = request.headers.get("origin")
+    headers: dict[str, str] = {}
+    if origin and (origin.endswith(".vercel.app") or "localhost" in origin):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "An internal server error occurred.",
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+        },
+        headers=headers,
+    )
+
 
 app.include_router(health_router, prefix=settings.api_v1_str)
 app.include_router(auth_router, prefix=settings.api_v1_str)
